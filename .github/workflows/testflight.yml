@@ -1,0 +1,105 @@
+name: TestFlight
+
+# Actions 탭에서 "Run workflow"를 누르거나 v로 시작하는 태그(v1.0.0 등)를 푸시하면 TestFlight에 올린다.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+env:
+  PROJECT: ReverseOmok.xcodeproj
+  SCHEME: ReverseOmok
+
+jobs:
+  upload:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secrets
+        run: |
+          missing=""
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 APPLE_TEAM_ID; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::시크릿이 없습니다:$missing — docs/RELEASE.md의 1회 설정을 확인하세요."
+            exit 1
+          fi
+
+      - name: Write API key
+        run: |
+          key_path="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s\n' "$ASC_KEY_P8" > "$key_path"
+          echo "ASC_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+
+      - name: Read app info from project
+        run: |
+          pbx="$PROJECT/project.pbxproj"
+          bundle_id=$(grep -m1 -o 'PRODUCT_BUNDLE_IDENTIFIER = [^;]*' "$pbx" | sed 's/.* = //; s/"//g')
+          app_name=$(grep -m1 -o 'INFOPLIST_KEY_CFBundleDisplayName = [^;]*' "$pbx" | sed 's/.* = //; s/"//g')
+          echo "BUNDLE_ID=$bundle_id" >> "$GITHUB_ENV"
+          echo "APP_NAME=$app_name" >> "$GITHUB_ENV"
+          echo "번들 ID: $bundle_id, 이름: $app_name"
+
+      - name: Prepare App Store Connect
+        id: asc
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet pyjwt cryptography
+          "$RUNNER_TEMP/venv/bin/python" scripts/asc.py \
+            --bundle-id "$BUNDLE_ID" --name "$APP_NAME" --min-build "${{ github.run_number }}"
+
+      - name: Archive
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            CURRENT_PROJECT_VERSION="${{ steps.asc.outputs.build_number }}" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Sign and upload to App Store Connect
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          EOF
+          set -o pipefail
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: Summary
+        run: |
+          echo "## TestFlight 업로드 완료" >> "$GITHUB_STEP_SUMMARY"
+          echo "빌드 ${{ steps.asc.outputs.build_number }}이(가) 처리되면 TestFlight 앱에 나타납니다(보통 5~15분)." >> "$GITHUB_STEP_SUMMARY"

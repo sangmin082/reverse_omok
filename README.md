@@ -27,13 +27,12 @@ project.yml               XcodeGen 예비 설정
 docs/PLAN.md              개발 계획과 설계 메모
 ```
 
-## 실행
+## 빌드와 배포
 
-1. 맥에서 Xcode 16 이상으로 `ReverseOmok.xcodeproj`를 엽니다.
-2. 타깃 **ReverseOmok** → Signing & Capabilities에서 팀을 고릅니다(개인 Apple ID도 가능).
-3. 시뮬레이터나 아이폰을 골라 실행(⌘R)합니다.
+맥 없이 GitHub Actions로 빌드하고 TestFlight에 올립니다. 자세한 내용은 [docs/RELEASE.md](docs/RELEASE.md)를 보세요.
 
-프로젝트 파일이 열리지 않으면 `brew install xcodegen && xcodegen`으로 다시 만들면 됩니다.
+- 푸시할 때마다 `CI`가 테스트와 앱 빌드를 확인합니다.
+- Actions 탭 → `TestFlight` → Run workflow를 누르면 아이폰의 TestFlight 앱으로 설치할 수 있습니다.
 
 ## 로직 테스트
 
