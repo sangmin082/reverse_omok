@@ -61,7 +61,7 @@
 ## 출시 체크리스트
 
 - Apple Developer Program 가입 (연 $99)
-- 번들 ID `com.sangmin082.ReverseOmok` 등록 (바꾸려면 프로젝트 설정에서 수정)
+- 번들 ID `com.reverseomok.game` 등록 (바꾸려면 프로젝트 설정에서 수정)
 - App Store Connect: 앱 이름, 카테고리(게임 > 보드), 연령 등급 4+
 - 개인정보: 수집하는 데이터 없음 → "데이터 수집 안 함"
 - 수출 규정: 암호화를 쓰지 않음(`ITSAppUsesNonExemptEncryption = NO` 설정됨)

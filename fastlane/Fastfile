@@ -1,0 +1,43 @@
+default_platform(:ios)
+
+PROJECT = "ReverseOmok.xcodeproj"
+SCHEME = "ReverseOmok"
+TARGET = "ReverseOmok"
+
+platform :ios do
+  desc "TestFlight에 올린다. BUILD_NUMBER는 scripts/asc.py가 정한다."
+  lane :beta do
+    setup_ci
+
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_KEY_P8")
+    )
+    app_id = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+
+    # 새 앱이면 배포 프로파일을 만들어 인증서 저장소에 추가한다. 기존 배포 인증서를 재사용한다.
+    match(api_key: api_key, app_identifier: app_id, readonly: false)
+
+    update_code_signing_settings(
+      path: PROJECT,
+      targets: [TARGET],
+      use_automatic_signing: false,
+      team_id: ENV.fetch("sigh_#{app_id}_appstore_team-id"),
+      profile_name: ENV.fetch("sigh_#{app_id}_appstore_profile-name"),
+      code_sign_identity: "Apple Distribution",
+      bundle_identifier: app_id
+    )
+
+    build_app(
+      project: PROJECT,
+      scheme: SCHEME,
+      configuration: "Release",
+      export_method: "app-store",
+      xcargs: "CURRENT_PROJECT_VERSION=#{ENV.fetch('BUILD_NUMBER')}",
+      output_directory: "build"
+    )
+
+    upload_to_testflight(api_key: api_key, skip_waiting_for_build_processing: true)
+  end
+end
