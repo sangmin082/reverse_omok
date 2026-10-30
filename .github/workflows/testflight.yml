@@ -1,0 +1,72 @@
+name: TestFlight
+
+# Actions 탭에서 "Run workflow"를 누르거나 v로 시작하는 태그(v1.0.0 등)를 푸시하면 TestFlight에 올린다.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secrets
+        run: |
+          missing=""
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 MATCH_PASSWORD MATCH_GIT_BASIC_AUTHORIZATION; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::시크릿이 없습니다:$missing — docs/RELEASE.md를 확인하세요."
+            exit 1
+          fi
+
+      - name: Write API key
+        run: |
+          key_path="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s\n' "$ASC_KEY_P8" > "$key_path"
+          echo "ASC_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+
+      - name: Read app info
+        run: |
+          bundle_id=$(sed -n 's/^app_identifier("\(.*\)")$/\1/p' fastlane/Appfile)
+          app_name=$(grep -m1 -o 'INFOPLIST_KEY_CFBundleDisplayName = [^;]*' ReverseOmok.xcodeproj/project.pbxproj | sed 's/.* = //; s/"//g')
+          echo "BUNDLE_ID=$bundle_id" >> "$GITHUB_ENV"
+          echo "APP_NAME=$app_name" >> "$GITHUB_ENV"
+          echo "번들 ID: $bundle_id, 이름: $app_name"
+
+      - name: Prepare App Store Connect
+        id: asc
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet pyjwt cryptography
+          "$RUNNER_TEMP/venv/bin/python" scripts/asc.py \
+            --bundle-id "$BUNDLE_ID" --name "$APP_NAME" --min-build "${{ github.run_number }}"
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Build and upload
+        env:
+          BUILD_NUMBER: ${{ steps.asc.outputs.build_number }}
+        run: bundle exec fastlane beta
+
+      - name: Summary
+        run: |
+          echo "## TestFlight 업로드 완료" >> "$GITHUB_STEP_SUMMARY"
+          echo "빌드 ${{ steps.asc.outputs.build_number }}이(가) 처리되면 TestFlight 앱에 나타납니다(보통 5~15분)." >> "$GITHUB_STEP_SUMMARY"
