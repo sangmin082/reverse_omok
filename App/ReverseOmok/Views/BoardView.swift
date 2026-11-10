@@ -58,9 +58,11 @@ struct BoardView: View {
         ctx.stroke(grid, with: .color(.black.opacity(0.75)), lineWidth: max(0.5, cell * 0.03))
 
         // 화점
+        // 작은 판은 가운데 화점만 찍는다.
         let edge = n >= 13 ? 3 : 2
-        for r in [edge, n / 2, n - 1 - edge] {
-            for c in [edge, n / 2, n - 1 - edge] {
+        let stars = n >= 9 ? [edge, n / 2, n - 1 - edge] : [n / 2]
+        for r in stars {
+            for c in stars {
                 let pt = center(Position(row: r, col: c), cell: cell)
                 let rr = cell * 0.09
                 ctx.fill(Path(ellipseIn: CGRect(x: pt.x - rr, y: pt.y - rr, width: rr * 2, height: rr * 2)), with: .color(.black))
@@ -100,7 +102,7 @@ struct BoardView: View {
             ctx.fill(Path(ellipseIn: CGRect(x: pt.x - r, y: pt.y - r, width: r * 2, height: r * 2)), with: .color(.red))
         }
 
-        // 5목 줄
+        // 패배한 줄
         if let first = losingLine.first, let last = losingLine.last {
             var line = Path()
             line.move(to: center(first, cell: cell))

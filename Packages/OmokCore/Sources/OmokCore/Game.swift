@@ -4,7 +4,7 @@ public struct Move: Codable, Hashable, Sendable {
 }
 
 public enum GameResult: Codable, Hashable, Sendable {
-    /// `loser`가 5목 이상을 만들어 졌다. `line`은 문제의 줄.
+    /// `loser`가 runLength목 이상을 만들어 졌다. `line`은 문제의 줄.
     case lost(loser: Stone, line: [Position])
     /// 판이 가득 찼다.
     case draw
@@ -21,14 +21,14 @@ public enum MoveError: Error, Equatable {
     case occupied
 }
 
-/// 리버스 오목 한 판의 상태. 흑 선공, 5목 이상을 만들면 패배, 판이 차면 무승부.
+/// 리버스 오목 한 판의 상태. 흑 선공, runLength목 이상을 만들면 패배, 판이 차면 무승부.
 public struct Game: Codable, Hashable, Sendable {
     public private(set) var board: Board
     public private(set) var moves: [Move] = []
     public private(set) var result: GameResult?
 
-    public init(size: Int = 15) {
-        board = Board(size: size)
+    public init(size: Int = 15, runLength: Int = 5) {
+        board = Board(size: size, runLength: runLength)
     }
 
     public var currentPlayer: Stone { moves.count.isMultiple(of: 2) ? .black : .white }

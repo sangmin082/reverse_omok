@@ -19,20 +19,21 @@ public struct Position: Hashable, Codable, Sendable {
 /// 가로, 세로, 두 대각선.
 public let lineDirections: [(dr: Int, dc: Int)] = [(0, 1), (1, 0), (1, 1), (1, -1)]
 
-/// 연속으로 놓으면 지는 돌 개수.
-public let losingRunLength = 5
-
 /// 정사각형 바둑판. 값 타입이라 복사해서 시뮬레이션에 써도 안전하다.
 public struct Board: Codable, Hashable, Sendable {
     public let size: Int
+    /// 이만큼 연속으로 놓으면 진다.
+    public let runLength: Int
     public private(set) var cells: [Stone?]
     public private(set) var stoneCount: Int = 0
 
     public static let supportedSizes = [9, 11, 13, 15]
+    public static let supportedRunLengths = [3, 4, 5]
 
-    public init(size: Int = 15) {
-        precondition(size >= losingRunLength, "board must fit a run of \(losingRunLength)")
+    public init(size: Int = 15, runLength: Int = 5) {
+        precondition(size >= runLength, "board must fit a run of \(runLength)")
         self.size = size
+        self.runLength = runLength
         self.cells = Array(repeating: nil, count: size * size)
     }
 
@@ -81,11 +82,11 @@ public struct Board: Codable, Hashable, Sendable {
         return line
     }
 
-    /// `stone`을 `p`에 놓으면 5목 이상이 되는 줄. 없으면 nil.
+    /// `stone`을 `p`에 놓으면 runLength목 이상이 되는 줄. 없으면 nil.
     public func losingLine(ifPlacing stone: Stone, at p: Position) -> [Position]? {
         for d in lineDirections {
             let line = run(through: p, direction: d, as: stone)
-            if line.count >= losingRunLength { return line }
+            if line.count >= runLength { return line }
         }
         return nil
     }

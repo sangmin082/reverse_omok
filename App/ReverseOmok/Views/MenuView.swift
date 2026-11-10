@@ -16,7 +16,7 @@ struct MenuView: View {
                     VStack(spacing: 6) {
                         Text("리버스 오목")
                             .font(.largeTitle.bold())
-                        Text("다섯 개를 이으면 집니다")
+                        Text("\(config.runLength)개를 이으면 집니다")
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -40,8 +40,13 @@ struct MenuView: View {
                         }
                     }
 
+                    Picker("규칙", selection: $config.runLength) {
+                        ForEach(Board.supportedRunLengths, id: \.self) { Text("\($0)목").tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+
                     Picker("판 크기", selection: $config.boardSize) {
-                        ForEach(Board.supportedSizes, id: \.self) { Text("\($0)줄").tag($0) }
+                        ForEach(MatchConfig.boardSizes(for: config.runLength), id: \.self) { Text("\($0)줄").tag($0) }
                     }
                 }
 
@@ -60,7 +65,7 @@ struct MenuView: View {
                         Button {
                             start(GameViewModel(saved: saved))
                         } label: {
-                            Label("이어하기 · \(saved.config.boardSize)줄 \(saved.game.moves.count)수째", systemImage: "arrow.forward.circle")
+                            Label("이어하기 · \(saved.config.runLength)목 \(saved.config.boardSize)줄 \(saved.game.moves.count)수째", systemImage: "arrow.forward.circle")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
@@ -95,6 +100,11 @@ struct MenuView: View {
             }
             .onChange(of: session == nil) { _, isClosed in
                 if isClosed { saved = SavedMatch.load() }
+            }
+            .onChange(of: config.runLength) { _, newValue in
+                if !MatchConfig.boardSizes(for: newValue).contains(config.boardSize) {
+                    config.boardSize = MatchConfig.defaultBoardSize(for: newValue)
+                }
             }
             .onChange(of: config) { _, newValue in
                 configData = (try? JSONEncoder().encode(newValue)) ?? Data()
