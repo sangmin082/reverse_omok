@@ -42,7 +42,10 @@ struct TutorialView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        VStack(spacing: 0) {
+            TopBar(title: step == .done ? " " : "건너뛰기") {
+                if step != .done { onFinish() }
+            }
             VStack(spacing: 16) {
                 if step == .done {
                     summary
@@ -51,21 +54,12 @@ struct TutorialView: View {
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .frame(maxWidth: 560)
-            .frame(maxWidth: .infinity)
-            .background(Theme.paper.ignoresSafeArea())
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    if step != .done {
-                        Button("건너뛰기") { onFinish() }
-                            .foregroundStyle(Theme.subInk)
-                    }
-                }
-            }
-            .toolbarBackground(Theme.paper, for: .navigationBar)
-            .onAppear { load(.place) }
+            .padding(.bottom, 16)
         }
+        .frame(maxWidth: 560)
+        .frame(maxWidth: .infinity)
+        .background(Theme.paper.ignoresSafeArea())
+        .onAppear { load(.place) }
     }
 
     private var lesson: some View {

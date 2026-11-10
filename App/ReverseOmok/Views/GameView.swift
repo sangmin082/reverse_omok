@@ -10,6 +10,9 @@ struct GameView: View {
 
     var body: some View {
         VStack(spacing: 20) {
+            TopBar(title: "‹ 나가기") { dismiss() }
+                .padding(.bottom, -8)
+
             HStack(alignment: .top, spacing: 20) {
                 playerBar(.black)
                 playerBar(.white)
@@ -38,18 +41,11 @@ struct GameView: View {
                 .padding(.horizontal, 20)
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 16)
+        .padding(.bottom, 16)
         .frame(maxWidth: 560)
         .frame(maxWidth: .infinity)
         .background(Theme.paper.ignoresSafeArea())
-        .navigationBarBackButtonHidden()
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("나가기") { dismiss() }
-                    .foregroundStyle(Theme.ink)
-            }
-        }
-        .toolbarBackground(Theme.paper, for: .navigationBar)
+        .toolbar(.hidden, for: .navigationBar)
         .onDisappear { model.stop() }
     }
 

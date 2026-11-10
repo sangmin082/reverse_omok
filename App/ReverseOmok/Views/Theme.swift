@@ -1,3 +1,4 @@
+import CoreText
 import SwiftUI
 import UIKit
 import OmokCore
@@ -13,9 +14,15 @@ enum Theme {
     static let wood = Color(light: 0xE2BA78, dark: 0xC49C5E)
     static let woodLine = Color(light: 0x3A2C17, dark: 0x2A1F10)
 
-    /// 제목용 명조. 기기에 없으면 시스템 글꼴로 대체된다.
+    /// 제목용 나눔명조(앱에 포함, OFL 라이선스).
     static func title(_ size: CGFloat) -> Font {
-        .custom("AppleMyungjo", size: size)
+        .custom("NanumMyeongjoBold", size: size)
+    }
+
+    /// 앱에 넣은 글꼴을 등록한다. 앱이 시작할 때 한 번 부른다.
+    static func registerFonts() {
+        guard let url = Bundle.main.url(forResource: "NanumMyeongjo-Bold", withExtension: "ttf") else { return }
+        CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
     }
 
     static let label = Font.system(size: 13, weight: .medium)
@@ -154,6 +161,27 @@ struct PlayerBar<Trailing: View>: View {
 extension PlayerBar where Trailing == EmptyView {
     init(stone: Stone, name: String, detail: String, active: Bool) {
         self.init(stone: stone, name: name, detail: detail, active: active) { EmptyView() }
+    }
+}
+
+/// 화면 맨 위의 글자 버튼 한 줄. 시스템 내비게이션 바 대신 쓴다.
+struct TopBar: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        HStack {
+            Button(action: action) {
+                Text(title)
+                    .font(.system(size: 16))
+                    .foregroundStyle(Theme.subInk)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Spacer()
+        }
+        .padding(.horizontal, 20)
     }
 }
 

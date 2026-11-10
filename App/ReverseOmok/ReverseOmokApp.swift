@@ -3,6 +3,10 @@ import OmokCore
 
 @main
 struct ReverseOmokApp: App {
+    init() {
+        Theme.registerFonts()
+    }
+
     var body: some Scene {
         WindowGroup {
             root

@@ -10,34 +10,31 @@ struct OnlineLobbyView: View {
     @FocusState private var codeFocused: Bool
 
     var body: some View {
-        Group {
-            switch session.phase {
-            case .idle:
-                lobby
-            case let .searching(code):
-                waiting(code: code)
-            case .connecting:
-                connecting
-            case .playing:
-                OnlineGameView(session: session)
+        VStack(spacing: 0) {
+            // 대국 중에는 기권이나 방 나가기로만 나갈 수 있다.
+            TopBar(title: session.phase == .playing ? " " : "‹ 나가기") {
+                guard session.phase != .playing else { return }
+                session.leave()
+                dismiss()
             }
+            Group {
+                switch session.phase {
+                case .idle:
+                    lobby
+                case let .searching(code):
+                    waiting(code: code)
+                case .connecting:
+                    connecting
+                case .playing:
+                    OnlineGameView(session: session)
+                }
+            }
+            .frame(maxHeight: .infinity)
         }
         .frame(maxWidth: 520)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.paper.ignoresSafeArea())
-        .navigationBarBackButtonHidden()
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                if session.phase != .playing {
-                    Button("나가기") {
-                        session.leave()
-                        dismiss()
-                    }
-                    .foregroundStyle(Theme.ink)
-                }
-            }
-        }
-        .toolbarBackground(Theme.paper, for: .navigationBar)
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear { auth.start() }
         .onDisappear { session.leave() }
     }
@@ -124,11 +121,6 @@ struct OnlineLobbyView: View {
                     .foregroundStyle(Theme.ink)
                 Text("설정 앱 → Game Center에서 로그인한 뒤 다시 들어와 주세요.")
                     .foregroundStyle(Theme.subInk)
-                if let error = auth.errorText {
-                    Text(error)
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.subInk)
-                }
             }
         }
         .font(.system(size: 15))
@@ -225,7 +217,7 @@ struct OnlineGameView: View {
                 .padding(.horizontal, 20)
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 16)
+        .padding(.bottom, 16)
         .confirmationDialog("기권할까요?", isPresented: $confirmResign, titleVisibility: .visible) {
             Button("기권", role: .destructive) { session.resign() }
         }
