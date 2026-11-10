@@ -3,6 +3,9 @@ name: Screenshots
 # 시뮬레이터에서 주요 화면을 찍어 ci-screenshots 브랜치에 올린다. 디자인 확인용.
 on:
   workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+    paths: ["App/**", ".github/workflows/screenshots.yml"]
 
 permissions:
   contents: write
