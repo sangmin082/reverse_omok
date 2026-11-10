@@ -21,26 +21,10 @@ struct MatchConfig: Codable, Equatable {
     var difficulty: AIDifficulty = .normal
     /// 컴퓨터 대전에서 사람이 잡는 돌.
     var humanStone: Stone = .black
-    /// 이만큼 이으면 진다. 3목 7줄이 한 판이 짧고(약 40수) 무승부가 거의 없다.
-    var runLength: Int = 3
-    var boardSize: Int = 7
 
-    /// 규칙별로 고를 수 있는 판 크기. 판이 클수록 한 판이 길어진다.
-    static func boardSizes(for runLength: Int) -> [Int] {
-        switch runLength {
-        case 3: [5, 7, 9]
-        case 4: [7, 9, 11]
-        default: [9, 11, 13, 15]
-        }
-    }
-
-    static func defaultBoardSize(for runLength: Int) -> Int {
-        switch runLength {
-        case 3: 7
-        case 4: 9
-        default: 15
-        }
-    }
+    /// 규칙은 3목 7줄 하나로 고정한다. 한 판이 약 40수로 짧고 무승부가 거의 없다.
+    static let runLength = 3
+    static let boardSize = 7
 
     func isHuman(_ stone: Stone) -> Bool {
         mode == .twoPlayer || stone == humanStone
@@ -67,8 +51,12 @@ struct SavedMatch: Codable {
     private static let key = "savedMatch"
 
     static func load() -> SavedMatch? {
-        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
-        return try? JSONDecoder().decode(SavedMatch.self, from: data)
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let saved = try? JSONDecoder().decode(SavedMatch.self, from: data) else { return nil }
+        // 예전 규칙(5목, 다른 판 크기)으로 저장된 판은 이어 할 수 없다.
+        let board = saved.game.board
+        guard board.size == MatchConfig.boardSize, board.runLength == MatchConfig.runLength else { return nil }
+        return saved
     }
 
     func save() {

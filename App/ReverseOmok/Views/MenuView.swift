@@ -8,6 +8,8 @@ struct MenuView: View {
     @State private var saved: SavedMatch?
     @State private var showRules = false
     @State private var showSettings = false
+    @State private var showTutorial = false
+    @AppStorage("tutorialSeen") private var tutorialSeen = false
 
     var body: some View {
         NavigationStack {
@@ -16,7 +18,7 @@ struct MenuView: View {
                     VStack(spacing: 6) {
                         Text("리버스 오목")
                             .font(.largeTitle.bold())
-                        Text("\(config.runLength)개를 이으면 집니다")
+                        Text("3개를 이으면 집니다")
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -39,15 +41,6 @@ struct MenuView: View {
                             Text("백 (나중)").tag(Stone.white)
                         }
                     }
-
-                    Picker("규칙", selection: $config.runLength) {
-                        ForEach(Board.supportedRunLengths, id: \.self) { Text("\($0)목").tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-
-                    Picker("판 크기", selection: $config.boardSize) {
-                        ForEach(MatchConfig.boardSizes(for: config.runLength), id: \.self) { Text("\($0)줄").tag($0) }
-                    }
                 }
 
                 Section {
@@ -65,12 +58,20 @@ struct MenuView: View {
                         Button {
                             start(GameViewModel(saved: saved))
                         } label: {
-                            Label("이어하기 · \(saved.config.runLength)목 \(saved.config.boardSize)줄 \(saved.game.moves.count)수째", systemImage: "arrow.forward.circle")
+                            Label("이어하기 · \(saved.game.moves.count)수째", systemImage: "arrow.forward.circle")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.large)
                         .listRowBackground(Color.clear)
+                    }
+                }
+
+                Section {
+                    Button {
+                        showTutorial = true
+                    } label: {
+                        Label("튜토리얼", systemImage: "graduationcap")
                     }
                 }
             }
@@ -92,19 +93,22 @@ struct MenuView: View {
             }
             .sheet(isPresented: $showRules) { RulesView() }
             .sheet(isPresented: $showSettings) { SettingsView() }
+            .fullScreenCover(isPresented: $showTutorial) {
+                TutorialView {
+                    tutorialSeen = true
+                    showTutorial = false
+                }
+            }
             .onAppear {
                 if let decoded = try? JSONDecoder().decode(MatchConfig.self, from: configData) {
                     config = decoded
                 }
                 saved = SavedMatch.load()
+                // 처음 켜면 튜토리얼부터 보여 준다.
+                if !tutorialSeen { showTutorial = true }
             }
             .onChange(of: session == nil) { _, isClosed in
                 if isClosed { saved = SavedMatch.load() }
-            }
-            .onChange(of: config.runLength) { _, newValue in
-                if !MatchConfig.boardSizes(for: newValue).contains(config.boardSize) {
-                    config.boardSize = MatchConfig.defaultBoardSize(for: newValue)
-                }
             }
             .onChange(of: config) { _, newValue in
                 configData = (try? JSONEncoder().encode(newValue)) ?? Data()

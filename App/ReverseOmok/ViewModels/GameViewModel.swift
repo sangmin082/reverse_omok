@@ -16,7 +16,7 @@ final class GameViewModel {
 
     init(config: MatchConfig) {
         self.config = config
-        game = Game(size: config.boardSize, runLength: config.runLength)
+        game = Game(size: MatchConfig.boardSize, runLength: MatchConfig.runLength)
         statsRecorded = false
         persist()
         scheduleAIIfNeeded()
