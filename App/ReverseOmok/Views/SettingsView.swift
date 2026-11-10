@@ -37,6 +37,8 @@ struct SettingsView: View {
                     LabeledContent("버전", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-")
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.paper.ignoresSafeArea())
             .navigationTitle("설정")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

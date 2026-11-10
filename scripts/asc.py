@@ -34,7 +34,7 @@ def token():
     )
 
 
-def call(method, path, params=None, body=None):
+def call(method, path, params=None, body=None, soft=False):
     url = API + path
     if params:
         url += "?" + urllib.parse.urlencode(params)
@@ -47,6 +47,9 @@ def call(method, path, params=None, body=None):
             return json.load(res)
     except urllib.error.HTTPError as e:
         detail = e.read().decode(errors="replace")
+        if soft:
+            print(f"::warning::App Store Connect API {method} {path} 실패 ({e.code}): {detail}")
+            return None
         sys.exit(f"::error::App Store Connect API {method} {path} 실패 ({e.code}): {detail}")
 
 
@@ -77,6 +80,33 @@ def report_certificates():
 def find_app(identifier):
     apps = call("GET", "/v1/apps", {"filter[bundleId]": identifier})["data"]
     return next((a for a in apps if a["attributes"]["bundleId"] == identifier), None)
+
+
+def ensure_game_center(app_id, bundle_id):
+    """온라인 대국에 필요한 Game Center를 켠다. 실패해도 배포는 계속한다."""
+    capabilities = call("GET", "/v1/bundleIds", {"filter[identifier]": bundle_id, "include": "bundleIdCapabilities"}, soft=True)
+    if capabilities is not None:
+        bundle = next((b for b in capabilities["data"] if b["attributes"]["identifier"] == bundle_id), None)
+        enabled = {c["attributes"]["capabilityType"] for c in capabilities.get("included", [])}
+        if bundle and "GAME_CENTER" not in enabled:
+            created = call("POST", "/v1/bundleIdCapabilities", body={"data": {
+                "type": "bundleIdCapabilities",
+                "attributes": {"capabilityType": "GAME_CENTER", "settings": []},
+                "relationships": {"bundleId": {"data": {"type": "bundleIds", "id": bundle["id"]}}},
+            }}, soft=True)
+            print("번들 ID에 Game Center 기능을 켰습니다." if created else "번들 ID의 Game Center 기능을 켜지 못했습니다.")
+        else:
+            print("번들 ID의 Game Center 기능: 켜져 있음")
+
+    detail = call("GET", f"/v1/apps/{app_id}/gameCenterDetail", soft=True)
+    if detail is not None and detail.get("data"):
+        print("앱의 Game Center: 켜져 있음")
+        return
+    created = call("POST", "/v1/gameCenterDetails", body={"data": {
+        "type": "gameCenterDetails",
+        "relationships": {"app": {"data": {"type": "apps", "id": app_id}}},
+    }}, soft=True)
+    print("앱의 Game Center를 켰습니다." if created else "앱의 Game Center를 켜지 못했습니다. App Store Connect에서 직접 켜야 할 수 있습니다.")
 
 
 def next_build_number(app_id, minimum):
@@ -124,6 +154,7 @@ def main():
         )
         sys.exit(f"::error::App Store Connect에 {args.bundle_id} 앱이 없습니다. 실행 요약(Summary)의 안내를 따라 주세요.")
 
+    ensure_game_center(app["id"], args.bundle_id)
     build = next_build_number(app["id"], args.min_build)
     print(f"앱 ID {app['id']}, 다음 빌드 번호 {build}")
     output("app_id", app["id"])

@@ -42,7 +42,8 @@ struct BoardView: View {
 
         // 판
         let boardRect = CGRect(x: 0, y: 0, width: side, height: side)
-        ctx.fill(Path(roundedRect: boardRect, cornerRadius: cell * 0.25), with: .color(Color("BoardWood")))
+        ctx.fill(Path(boardRect), with: .color(Theme.wood))
+        ctx.stroke(Path(boardRect.insetBy(dx: 0.5, dy: 0.5)), with: .color(Theme.woodLine.opacity(0.6)), lineWidth: 1)
 
         // 줄
         var grid = Path()
@@ -55,7 +56,7 @@ struct BoardView: View {
             grid.move(to: CGPoint(x: start, y: x))
             grid.addLine(to: CGPoint(x: end, y: x))
         }
-        ctx.stroke(grid, with: .color(.black.opacity(0.75)), lineWidth: max(0.5, cell * 0.03))
+        ctx.stroke(grid, with: .color(Theme.woodLine.opacity(0.85)), lineWidth: max(0.75, cell * 0.022))
 
         // 화점
         // 작은 판은 가운데 화점만 찍는다.
@@ -65,7 +66,7 @@ struct BoardView: View {
             for c in stars {
                 let pt = center(Position(row: r, col: c), cell: cell)
                 let rr = cell * 0.09
-                ctx.fill(Path(ellipseIn: CGRect(x: pt.x - rr, y: pt.y - rr, width: rr * 2, height: rr * 2)), with: .color(.black))
+                ctx.fill(Path(ellipseIn: CGRect(x: pt.x - rr, y: pt.y - rr, width: rr * 2, height: rr * 2)), with: .color(Theme.woodLine))
             }
         }
 
@@ -78,11 +79,11 @@ struct BoardView: View {
             x.addLine(to: CGPoint(x: pt.x + d, y: pt.y + d))
             x.move(to: CGPoint(x: pt.x + d, y: pt.y - d))
             x.addLine(to: CGPoint(x: pt.x - d, y: pt.y + d))
-            ctx.stroke(x, with: .color(.red.opacity(0.8)), style: StrokeStyle(lineWidth: max(1, cell * 0.07), lineCap: .round))
+            ctx.stroke(x, with: .color(Theme.seal), style: StrokeStyle(lineWidth: max(1.5, cell * 0.06), lineCap: .square))
         }
 
         // 돌
-        let radius = cell * 0.46
+        let radius = cell * 0.44
         for p in board.allPositions {
             guard let stone = board[p] else { continue }
             drawStone(stone, at: center(p, cell: cell), radius: radius, in: &ctx)
@@ -99,7 +100,7 @@ struct BoardView: View {
         if let lastMove, losingLine.isEmpty {
             let pt = center(lastMove, cell: cell)
             let r = cell * 0.12
-            ctx.fill(Path(ellipseIn: CGRect(x: pt.x - r, y: pt.y - r, width: r * 2, height: r * 2)), with: .color(.red))
+            ctx.fill(Path(ellipseIn: CGRect(x: pt.x - r, y: pt.y - r, width: r * 2, height: r * 2)), with: .color(Theme.seal))
         }
 
         // 패배한 줄
@@ -107,7 +108,7 @@ struct BoardView: View {
             var line = Path()
             line.move(to: center(first, cell: cell))
             line.addLine(to: center(last, cell: cell))
-            ctx.stroke(line, with: .color(.red), style: StrokeStyle(lineWidth: cell * 0.12, lineCap: .round))
+            ctx.stroke(line, with: .color(Theme.seal), style: StrokeStyle(lineWidth: cell * 0.1, lineCap: .round))
         }
     }
 
@@ -118,11 +119,11 @@ struct BoardView: View {
         switch stone {
         case .black:
             ctx.fill(circle, with: .radialGradient(
-                Gradient(colors: [Color(white: 0.45), Color(white: 0.05)]),
+                Gradient(colors: [Color(white: 0.3), Color(white: 0.06)]),
                 center: highlight, startRadius: 0, endRadius: radius * 1.3))
         case .white:
             ctx.fill(circle, with: .radialGradient(
-                Gradient(colors: [.white, Color(white: 0.82)]),
+                Gradient(colors: [.white, Color(white: 0.88)]),
                 center: highlight, startRadius: 0, endRadius: radius * 1.3))
             ctx.stroke(circle, with: .color(.black.opacity(0.35)), lineWidth: max(0.5, radius * 0.05))
         }
@@ -130,6 +131,6 @@ struct BoardView: View {
 }
 
 #Preview {
-    BoardView(board: Board(size: 15), pending: Position(row: 7, col: 7))
+    BoardView(board: Board(size: 7, runLength: 3), pending: Position(row: 3, col: 3))
         .padding()
 }
