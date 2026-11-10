@@ -1,7 +1,7 @@
 /// AI 탐색용 보드. 착수/무르기마다 평가값을 증분 갱신한다.
 ///
-/// 핵심 관찰: 빈 칸 c에 X를 두면 5목 이상이 되는 것은, c를 포함하는 길이 5의 창(window) 중
-/// "X 4개 + 빈칸 c"인 창이 있을 때와 정확히 같다. 그래서 창별로 흑/백 돌 수를 세어 두면
+/// 핵심 관찰: 빈 칸 c에 X를 두면 L목 이상이 되는 것은, c를 포함하는 길이 L의 창(window) 중
+/// "X L-1개 + 빈칸 c"인 창이 있을 때와 정확히 같다. 그래서 창별로 흑/백 돌 수를 세어 두면
 /// 각 칸이 누구에게 금수(두면 지는 칸)인지 O(1)로 알 수 있다.
 ///
 /// - 흑만 못 두는 칸 = 백 전용 칸(백의 비축 수)
@@ -12,6 +12,9 @@ struct SearchState {
     static let empty: UInt8 = 0
 
     let size: Int
+    /// 창 길이 = 지는 줄 길이 L. 창에 같은 색이 L-1개 있고 빈칸이 하나면 그 빈칸은 금수.
+    let windowLength: Int
+    private var killThreshold: Int { windowLength - 1 }
     private(set) var cells: [UInt8]
     private(set) var emptyCount: Int
 
@@ -31,11 +34,18 @@ struct SearchState {
     /// 색별 모양 점수(같은 색만 있는 창에 돌이 2~3개면 장차 금수가 생길 위험). 높을수록 그 색에 불리.
     private(set) var shapeRisk: [Int] = [0, 0, 0]
 
-    static let riskWeight: [Int] = [0, 0, 1, 6, 0, 0]
+    /// 같은 색만 k개 있는 창의 위험 가중치. 금수 직전(L-2)은 크게, 그 전(L-3)은 작게.
+    private let riskWeight: [Int]
 
     init(board: Board) {
         let n = board.size
+        let length = board.runLength
         size = n
+        windowLength = length
+        var weights = Array(repeating: 0, count: length + 1)
+        if length >= 2 { weights[length - 2] = 6 }
+        if length >= 4 { weights[length - 3] = 1 }
+        riskWeight = weights
         cells = Array(repeating: Self.empty, count: n * n)
         emptyCount = n * n
 
@@ -44,11 +54,11 @@ struct SearchState {
         for r in 0..<n {
             for c in 0..<n {
                 for d in lineDirections {
-                    let er = r + d.dr * (losingRunLength - 1)
-                    let ec = c + d.dc * (losingRunLength - 1)
+                    let er = r + d.dr * (length - 1)
+                    let ec = c + d.dc * (length - 1)
                     guard er >= 0, er < n, ec >= 0, ec < n else { continue }
-                    let w = wc.count / losingRunLength
-                    for k in 0..<losingRunLength {
+                    let w = wc.count / length
+                    for k in 0..<length {
                         let idx = (r + d.dr * k) * n + (c + d.dc * k)
                         wc.append(idx)
                         cw[idx].append(w)
@@ -58,7 +68,7 @@ struct SearchState {
         }
         windowCells = wc
         cellWindows = cw
-        let windowTotal = wc.count / losingRunLength
+        let windowTotal = wc.count / length
         windowCount = Array(repeating: Array(repeating: 0, count: windowTotal), count: 3)
         killCount = Array(repeating: Array(repeating: 0, count: n * n), count: 3)
         shared = n * n
@@ -116,14 +126,14 @@ struct SearchState {
             let oldMine = Int(windowCount[me][w])
             let oldOpp = Int(windowCount[opp][w])
             // 이 칸이 유일한 빈칸이던 4목 창은 사라진다.
-            if oldMine == 4 && oldOpp == 0 { killCount[me][idx] -= 1 }
-            if oldOpp == 4 && oldMine == 0 { killCount[opp][idx] -= 1 }
+            if oldMine == killThreshold && oldOpp == 0 { killCount[me][idx] -= 1 }
+            if oldOpp == killThreshold && oldMine == 0 { killCount[opp][idx] -= 1 }
 
             removeShape(mine: oldMine, opp: oldOpp, me: me)
             windowCount[me][w] += 1
             addShape(mine: oldMine + 1, opp: oldOpp, me: me)
 
-            if oldMine + 1 == 4 && oldOpp == 0 {
+            if oldMine + 1 == killThreshold && oldOpp == 0 {
                 let e = emptyCell(in: w)
                 untally(e)
                 killCount[me][e] += 1
@@ -141,8 +151,8 @@ struct SearchState {
         for w in cellWindows[idx] {
             let oldMine = Int(windowCount[me][w])
             let oldOpp = Int(windowCount[opp][w])
-            if oldMine == 4 && oldOpp == 0 {
-                // 4목 창이 3목으로 줄면 그 창의 빈칸은 더 이상 금수가 아니다.
+            if oldMine == killThreshold && oldOpp == 0 {
+                // 금수 창이 한 칸 줄어들면 줄면 그 창의 빈칸은 더 이상 금수가 아니다.
                 let e = emptyCell(in: w)
                 untally(e)
                 killCount[me][e] -= 1
@@ -153,8 +163,8 @@ struct SearchState {
             addShape(mine: oldMine - 1, opp: oldOpp, me: me)
 
             // 돌을 빼고 나서 4목 창이 되면 idx가 그 창의 유일한 빈칸이다.
-            if oldMine - 1 == 4 && oldOpp == 0 { killCount[me][idx] += 1 }
-            if oldOpp == 4 && oldMine - 1 == 0 { killCount[opp][idx] += 1 }
+            if oldMine - 1 == killThreshold && oldOpp == 0 { killCount[me][idx] += 1 }
+            if oldOpp == killThreshold && oldMine - 1 == 0 { killCount[opp][idx] += 1 }
         }
         cells[idx] = Self.empty
         emptyCount += 1
@@ -164,21 +174,21 @@ struct SearchState {
     // MARK: - 내부
 
     private func emptyCell(in w: Int) -> Int {
-        let base = w * losingRunLength
-        for k in 0..<losingRunLength where cells[windowCells[base + k]] == Self.empty {
+        let base = w * windowLength
+        for k in 0..<windowLength where cells[windowCells[base + k]] == Self.empty {
             return windowCells[base + k]
         }
         preconditionFailure("window \(w) has no empty cell")
     }
 
     @inline(__always) private mutating func removeShape(mine: Int, opp: Int, me: Int) {
-        if opp == 0 { shapeRisk[me] -= Self.riskWeight[mine] }
-        if mine == 0 { shapeRisk[3 - me] -= Self.riskWeight[opp] }
+        if opp == 0 { shapeRisk[me] -= riskWeight[mine] }
+        if mine == 0 { shapeRisk[3 - me] -= riskWeight[opp] }
     }
 
     @inline(__always) private mutating func addShape(mine: Int, opp: Int, me: Int) {
-        if opp == 0 { shapeRisk[me] += Self.riskWeight[mine] }
-        if mine == 0 { shapeRisk[3 - me] += Self.riskWeight[opp] }
+        if opp == 0 { shapeRisk[me] += riskWeight[mine] }
+        if mine == 0 { shapeRisk[3 - me] += riskWeight[opp] }
     }
 
     private mutating func tally(_ idx: Int) { adjustTally(idx, by: 1) }

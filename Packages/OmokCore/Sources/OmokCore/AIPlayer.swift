@@ -28,7 +28,7 @@ public enum AIDifficulty: String, Codable, CaseIterable, Sendable, Identifiable 
         switch self {
         case .easy: Config(maxDepth: 1, beamWidth: 999, timeLimit: .seconds(1), noise: 90)
         case .normal: Config(maxDepth: 2, beamWidth: 16, timeLimit: .seconds(1), noise: 8)
-        case .hard: Config(maxDepth: 10, beamWidth: 10, timeLimit: .milliseconds(1200), noise: 0)
+        case .hard: Config(maxDepth: 10, beamWidth: 10, timeLimit: .milliseconds(800), noise: 0)
         }
     }
 }

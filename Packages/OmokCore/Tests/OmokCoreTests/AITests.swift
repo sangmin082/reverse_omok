@@ -20,9 +20,9 @@ final class AITests: XCTestCase {
     /// 증분 갱신한 금수 판정이 Board의 직접 계산과 항상 같은지 무작위 대국으로 확인한다.
     func testSearchStateMatchesBruteForce() {
         var rng = SplitMix64(seed: 42)
-        for size in [5, 7, 9] {
+        for (size, runLength) in [(5, 5), (7, 5), (9, 5), (5, 3), (7, 3), (6, 4), (9, 4)] {
             for _ in 0..<20 {
-                var board = Board(size: size)
+                var board = Board(size: size, runLength: runLength)
                 var state = SearchState(board: board)
                 var history: [Int] = []
                 var color = Stone.black

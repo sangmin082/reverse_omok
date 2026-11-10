@@ -16,7 +16,7 @@ final class GameViewModel {
 
     init(config: MatchConfig) {
         self.config = config
-        game = Game(size: config.boardSize)
+        game = Game(size: config.boardSize, runLength: config.runLength)
         statsRecorded = false
         persist()
         scheduleAIIfNeeded()
@@ -64,13 +64,14 @@ final class GameViewModel {
         case .draw:
             return "판이 가득 찼습니다. 무승부!"
         case let .lost(loser, _):
+            let run = game.board.runLength
             switch config.mode {
             case .twoPlayer:
-                return "\(loser.displayName)이 5목을 만들었습니다. \(loser.opponent.displayName) 승리!"
+                return "\(loser.displayName)이 \(run)목을 만들었습니다. \(loser.opponent.displayName) 승리!"
             case .vsAI:
                 return loser == config.humanStone
-                    ? "5목을 만들어 버렸습니다. 패배…"
-                    : "컴퓨터가 5목을 만들었습니다. 승리!"
+                    ? "\(run)목을 만들어 버렸습니다. 패배…"
+                    : "컴퓨터가 \(run)목을 만들었습니다. 승리!"
             }
         }
     }
@@ -158,8 +159,8 @@ final class GameViewModel {
             }.value
             // 너무 빨리 두면 어색하니 최소한의 뜸을 들인다.
             let elapsed = ContinuousClock.now - start
-            if elapsed < .milliseconds(450) {
-                try? await Task.sleep(for: .milliseconds(450) - elapsed)
+            if elapsed < .milliseconds(250) {
+                try? await Task.sleep(for: .milliseconds(250) - elapsed)
             }
             guard let self, !Task.isCancelled else { return }
             self.isThinking = false
