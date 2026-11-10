@@ -121,7 +121,7 @@ struct StoneDot: View {
     var body: some View {
         Circle()
             .fill(stone == .black ? Color(white: 0.08) : Color(white: 0.97))
-            .overlay(Circle().stroke(Color.black.opacity(0.45), lineWidth: 0.75))
+            .overlay(Circle().stroke(Theme.subInk, lineWidth: 1))
             .frame(width: size, height: size)
     }
 }
