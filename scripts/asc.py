@@ -64,6 +64,16 @@ def ensure_bundle_id(identifier, name):
     print(f"번들 ID 등록함: {identifier}")
 
 
+def report_certificates():
+    """이 API 키로 보이는 배포 인증서를 출력한다. match 인증서 문제를 진단하는 용도."""
+    certs = call("GET", "/v1/certificates", {"limit": 200})["data"]
+    dist = [c for c in certs if c["attributes"]["certificateType"] in ("DISTRIBUTION", "IOS_DISTRIBUTION")]
+    print(f"보이는 인증서 {len(certs)}개, 그중 배포 인증서 {len(dist)}개")
+    for c in dist:
+        a = c["attributes"]
+        print(f"  {c['id']}  {a['certificateType']}  {a.get('name')}  만료 {a.get('expirationDate')}")
+
+
 def find_app(identifier):
     apps = call("GET", "/v1/apps", {"filter[bundleId]": identifier})["data"]
     return next((a for a in apps if a["attributes"]["bundleId"] == identifier), None)
@@ -98,6 +108,7 @@ def main():
     args = parser.parse_args()
 
     ensure_bundle_id(args.bundle_id, args.name)
+    report_certificates()
 
     app = find_app(args.bundle_id)
     if app is None:
