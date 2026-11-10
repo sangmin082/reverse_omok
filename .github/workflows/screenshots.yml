@@ -1,0 +1,60 @@
+name: Screenshots
+
+# 시뮬레이터에서 주요 화면을 찍어 ci-screenshots 브랜치에 올린다. 디자인 확인용.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project ReverseOmok.xcodeproj \
+            -scheme ReverseOmok \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO | tail -5
+
+      - name: Capture
+        run: |
+          set -euo pipefail
+          app=build/Build/Products/Debug-iphonesimulator/ReverseOmok.app
+          device=$(xcrun simctl list devices available | grep -m1 -E '^\s+iPhone [0-9]+ \(' | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')
+          echo "device: $device"
+          xcrun simctl boot "$device"
+          xcrun simctl bootstatus "$device" -b
+          xcrun simctl install "$device" "$app"
+          mkdir -p shots
+          shoot() { # name appearance screen
+            xcrun simctl ui "$device" appearance "$2"
+            xcrun simctl terminate "$device" com.reverseomok.game 2>/dev/null || true
+            xcrun simctl launch "$device" com.reverseomok.game -screen "$3" -tutorialSeen YES
+            sleep 6
+            xcrun simctl io "$device" screenshot "shots/$1.png"
+          }
+          shoot menu light menu
+          shoot game light game
+          shoot tutorial light tutorial
+          shoot online light online
+          shoot menu-dark dark menu
+          shoot game-dark dark game
+
+      - name: Publish to ci-screenshots branch
+        run: |
+          cd shots
+          git init -q -b ci-screenshots
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add .
+          git commit -q -m "Screenshots for ${GITHUB_SHA}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-screenshots
