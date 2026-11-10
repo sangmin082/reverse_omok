@@ -14,9 +14,9 @@ struct RulesView: View {
                 }
 
                 Section("화면 보는 법") {
-                    Label("빨간 ×는 지금 두면 지는 칸입니다. 설정에서 끌 수 있어요.", systemImage: "xmark")
-                    Label("'둘 수 있는 칸'은 각자 3개를 잇지 않고 둘 수 있는 빈칸 수입니다.", systemImage: "number")
-                    Label("착수 확인을 켜면 한 번 탭해 미리 보고, 한 번 더 탭하면 둡니다.", systemImage: "hand.tap")
+                    Text("빨간 ×는 지금 두면 지는 칸입니다. 설정에서 끌 수 있어요.")
+                    Text("'둘 수 있는 칸'은 각자 3개를 잇지 않고 둘 수 있는 빈칸 수입니다.")
+                    Text("착수 확인을 켜면 한 번 탭해 미리 보고, 한 번 더 탭하면 둡니다.")
                 }
 
                 Section("요령") {
@@ -25,7 +25,9 @@ struct RulesView: View {
                     Text("후반에는 '둘 수 있는 칸' 숫자가 승부를 가릅니다. 상대보다 내 칸이 많도록 관리하세요.")
                 }
             }
-            .navigationTitle("리버스 오목 규칙")
+            .scrollContentBackground(.hidden)
+            .background(Theme.paper.ignoresSafeArea())
+            .navigationTitle("규칙")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -38,9 +40,9 @@ struct RulesView: View {
     private func rule(_ number: String, _ text: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Text(number)
-                .font(.headline)
-                .frame(width: 24, height: 24)
-                .background(Circle().fill(Color.accentColor.opacity(0.2)))
+                .font(Theme.title(17))
+                .foregroundStyle(Theme.seal)
+                .frame(width: 20, alignment: .leading)
             Text(text)
         }
     }

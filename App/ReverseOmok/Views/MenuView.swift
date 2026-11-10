@@ -3,86 +3,31 @@ import OmokCore
 
 struct MenuView: View {
     @AppStorage("lastConfig") private var configData = Data()
+    @AppStorage("tutorialSeen") private var tutorialSeen = false
     @State private var config = MatchConfig()
     @State private var session: GameViewModel?
     @State private var saved: SavedMatch?
+    @State private var showOnline = false
     @State private var showRules = false
     @State private var showSettings = false
     @State private var showTutorial = false
-    @AppStorage("tutorialSeen") private var tutorialSeen = false
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    VStack(spacing: 6) {
-                        Text("리버스 오목")
-                            .font(.largeTitle.bold())
-                        Text("3개를 이으면 집니다")
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .listRowBackground(Color.clear)
+            ScrollView {
+                VStack(spacing: 28) {
+                    masthead
+                    options
+                    actions
+                    footer
                 }
-
-                Section("대전 방식") {
-                    Picker("상대", selection: $config.mode) {
-                        ForEach(GameMode.allCases) { Text($0.displayName).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-
-                    if config.mode == .vsAI {
-                        Picker("난이도", selection: $config.difficulty) {
-                            ForEach(AIDifficulty.allCases) { Text($0.displayName).tag($0) }
-                        }
-                        Picker("내 돌", selection: $config.humanStone) {
-                            Text("흑 (먼저)").tag(Stone.black)
-                            Text("백 (나중)").tag(Stone.white)
-                        }
-                    }
-                }
-
-                Section {
-                    Button {
-                        start(GameViewModel(config: config))
-                    } label: {
-                        Label("새 게임 시작", systemImage: "play.fill")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .listRowBackground(Color.clear)
-
-                    if let saved, !saved.game.isOver, !saved.game.moves.isEmpty {
-                        Button {
-                            start(GameViewModel(saved: saved))
-                        } label: {
-                            Label("이어하기 · \(saved.game.moves.count)수째", systemImage: "arrow.forward.circle")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.large)
-                        .listRowBackground(Color.clear)
-                    }
-                }
-
-                Section {
-                    Button {
-                        showTutorial = true
-                    } label: {
-                        Label("튜토리얼", systemImage: "graduationcap")
-                    }
-                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 32)
+                .frame(maxWidth: 520)
+                .frame(maxWidth: .infinity)
             }
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { showRules = true } label: { Label("규칙", systemImage: "questionmark.circle") }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showSettings = true } label: { Label("설정", systemImage: "gearshape") }
-                }
-            }
+            .background(Theme.paper.ignoresSafeArea())
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: Binding(
                 get: { session != nil },
                 set: { if !$0 { session = nil } }
@@ -90,6 +35,9 @@ struct MenuView: View {
                 if let session {
                     GameView(model: session)
                 }
+            }
+            .navigationDestination(isPresented: $showOnline) {
+                OnlineLobbyView()
             }
             .sheet(isPresented: $showRules) { RulesView() }
             .sheet(isPresented: $showSettings) { SettingsView() }
@@ -116,8 +64,119 @@ struct MenuView: View {
         }
     }
 
-    private func start(_ model: GameViewModel) {
-        session = model
+    private var masthead: some View {
+        VStack(spacing: 14) {
+            Emblem()
+                .frame(width: 96, height: 96)
+            Text("리버스 오목")
+                .font(Theme.title(40))
+                .foregroundStyle(Theme.ink)
+            Text("셋을 이으면 진다")
+                .font(.system(size: 15))
+                .tracking(4)
+                .foregroundStyle(Theme.subInk)
+        }
+        .padding(.top, 12)
+    }
+
+    private var options: some View {
+        VStack(spacing: 12) {
+            ChoiceRow(
+                label: "상대",
+                options: GameMode.allCases.map { Choice($0, $0.displayName) },
+                selection: $config.mode
+            )
+            if config.mode == .vsAI {
+                ChoiceRow(
+                    label: "난이도",
+                    options: AIDifficulty.allCases.map { Choice($0, $0.displayName) },
+                    selection: $config.difficulty
+                )
+                ChoiceRow(
+                    label: "내 돌",
+                    options: [Choice(Stone.black, "흑 · 먼저"), Choice(Stone.white, "백 · 나중")],
+                    selection: $config.humanStone
+                )
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: config.mode)
+    }
+
+    private var actions: some View {
+        VStack(spacing: 10) {
+            Button("대국 시작") {
+                session = GameViewModel(config: config)
+            }
+            .buttonStyle(InkButtonStyle())
+
+            if let saved, !saved.game.isOver, !saved.game.moves.isEmpty {
+                Button("이어 두기 · \(saved.game.moves.count)수째") {
+                    session = GameViewModel(saved: saved)
+                }
+                .buttonStyle(OutlineButtonStyle())
+            }
+
+            Button("온라인 대국") {
+                showOnline = true
+            }
+            .buttonStyle(OutlineButtonStyle())
+        }
+    }
+
+    private var footer: some View {
+        VStack(spacing: 16) {
+            Hairline()
+            HStack(spacing: 0) {
+                footerLink("튜토리얼") { showTutorial = true }
+                footerLink("규칙") { showRules = true }
+                footerLink("설정") { showSettings = true }
+            }
+        }
+    }
+
+    private func footerLink(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 15))
+                .foregroundStyle(Theme.ink)
+                .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// 흑돌 둘과 금지 칸 하나. 이 게임의 규칙을 그대로 그린 표지.
+private struct Emblem: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let cell = size.width / 3
+            var grid = Path()
+            for i in 0..<3 {
+                let x = (CGFloat(i) + 0.5) * cell
+                grid.move(to: CGPoint(x: x, y: 0))
+                grid.addLine(to: CGPoint(x: x, y: size.height))
+                grid.move(to: CGPoint(x: 0, y: x))
+                grid.addLine(to: CGPoint(x: size.width, y: x))
+            }
+            ctx.stroke(grid, with: .color(Theme.ink.opacity(0.35)), lineWidth: 1)
+
+            let radius = cell * 0.38
+            for i in 0..<2 {
+                let c = (CGFloat(i) + 0.5) * cell
+                let rect = CGRect(x: c - radius, y: c - radius, width: radius * 2, height: radius * 2)
+                ctx.fill(Path(ellipseIn: rect), with: .color(Theme.ink))
+            }
+
+            let c = 2.5 * cell
+            let d = cell * 0.24
+            var cross = Path()
+            cross.move(to: CGPoint(x: c - d, y: c - d))
+            cross.addLine(to: CGPoint(x: c + d, y: c + d))
+            cross.move(to: CGPoint(x: c + d, y: c - d))
+            cross.addLine(to: CGPoint(x: c - d, y: c + d))
+            ctx.stroke(cross, with: .color(Theme.seal), style: StrokeStyle(lineWidth: 4, lineCap: .square))
+        }
+        .accessibilityHidden(true)
     }
 }
 

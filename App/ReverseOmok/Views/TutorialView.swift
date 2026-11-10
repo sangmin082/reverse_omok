@@ -50,16 +50,20 @@ struct TutorialView: View {
                     lesson
                 }
             }
-            .padding()
-            .navigationTitle("튜토리얼")
-            .navigationBarTitleDisplayMode(.inline)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .frame(maxWidth: 560)
+            .frame(maxWidth: .infinity)
+            .background(Theme.paper.ignoresSafeArea())
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     if step != .done {
                         Button("건너뛰기") { onFinish() }
+                            .foregroundStyle(Theme.subInk)
                     }
                 }
             }
+            .toolbarBackground(Theme.paper, for: .navigationBar)
             .onAppear { load(.place) }
         }
     }
@@ -67,11 +71,15 @@ struct TutorialView: View {
     private var lesson: some View {
         VStack(spacing: 16) {
             Text("\(step.rawValue + 1) / \(Step.allCases.count - 1)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(Theme.label)
+                .foregroundStyle(Theme.seal)
             Text(step.title)
-                .font(.title2.bold())
+                .font(Theme.title(26))
+                .foregroundStyle(Theme.ink)
             Text(step.instruction)
+                .font(.system(size: 15))
+                .foregroundStyle(Theme.ink)
+                .lineSpacing(3)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -84,18 +92,15 @@ struct TutorialView: View {
             )
 
             Text(feedback ?? " ")
-                .font(.headline)
-                .foregroundStyle(cleared ? Color.accentColor : .primary)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(cleared ? Theme.seal : Theme.ink)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Button {
+            Button("다음") {
                 load(Step(rawValue: step.rawValue + 1) ?? .done)
-            } label: {
-                Text("다음").frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .buttonStyle(InkButtonStyle())
             .disabled(!cleared)
 
             Spacer(minLength: 0)
@@ -106,20 +111,33 @@ struct TutorialView: View {
         VStack(spacing: 20) {
             Spacer()
             Text(Step.done.title)
-                .font(.largeTitle.bold())
-            VStack(alignment: .leading, spacing: 12) {
-                Label("내 돌 3개를 이으면 집니다.", systemImage: "xmark.circle")
-                Label("내 돌은 흩어 두고, 상대의 줄은 막지 마세요.", systemImage: "circle.grid.3x3")
-                Label("상대가 둘 곳이 금지 칸뿐이면 내가 이깁니다.", systemImage: "flag.checkered")
+                .font(Theme.title(34))
+                .foregroundStyle(Theme.ink)
+            VStack(alignment: .leading, spacing: 0) {
+                point("하나", "내 돌 3개를 이으면 집니다.")
+                point("둘", "내 돌은 흩어 두고, 상대의 줄은 막지 마세요.")
+                point("셋", "상대가 둘 곳이 금지 칸뿐이면 내가 이깁니다.")
             }
             Spacer()
-            Button {
-                onFinish()
-            } label: {
-                Text("시작하기").frame(maxWidth: .infinity)
+            Button("시작하기") { onFinish() }
+                .buttonStyle(InkButtonStyle())
+        }
+    }
+
+    private func point(_ number: String, _ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: 14) {
+                Text(number)
+                    .font(Theme.title(17))
+                    .foregroundStyle(Theme.seal)
+                    .frame(width: 36, alignment: .leading)
+                Text(text)
+                    .font(.system(size: 16))
+                    .foregroundStyle(Theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .padding(.vertical, 14)
+            Hairline()
         }
     }
 
