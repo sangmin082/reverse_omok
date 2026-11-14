@@ -18,7 +18,7 @@ struct TutorialView: View {
         var title: String {
             switch self {
             case .place: "돌 놓기"
-            case .avoid: "3개를 이으면 진다"
+            case .avoid: "5개를 이으면 진다"
             case .opponent: "상대의 금지 칸"
             case .finish: "상대를 몰아넣기"
             case .done: "준비 끝!"
@@ -30,7 +30,7 @@ struct TutorialView: View {
             case .place:
                 "흑과 백이 번갈아 한 수씩 둡니다. 나는 흑이에요. 아무 칸이나 탭해 돌을 놓아 보세요."
             case .avoid:
-                "내 돌 3개가 가로·세로·대각선으로 이어지면 집니다. 빨간 ×는 지금 두면 지는 칸이에요. ×가 없는 칸에 두세요."
+                "내 돌 5개가 가로·세로·대각선으로 이어지면 집니다. 빨간 ×는 지금 두면 지는 칸이에요. ×가 없는 칸에 두세요."
             case .opponent:
                 "이번 ×는 백이 두면 지는 칸입니다. 백이 못 두니 나만 쓸 수 있는 내 전용 칸이에요. 상대의 줄은 막지 말고 그대로 두는 게 좋습니다."
             case .finish:
@@ -108,7 +108,7 @@ struct TutorialView: View {
                 .font(Theme.title(34))
                 .foregroundStyle(Theme.ink)
             VStack(alignment: .leading, spacing: 0) {
-                point("하나", "내 돌 3개를 이으면 집니다.")
+                point("하나", "내 돌 5개를 이으면 집니다.")
                 point("둘", "내 돌은 흩어 두고, 상대의 줄은 막지 마세요.")
                 point("셋", "상대가 둘 곳이 금지 칸뿐이면 내가 이깁니다.")
             }
@@ -158,34 +158,46 @@ struct TutorialView: View {
             board = Self.makeBoard([])
         case .avoid:
             board = Self.makeBoard([
-                ".......",
-                ".W.....",
-                ".......",
-                "..BB...",
-                ".......",
-                ".B.B.W.",
-                ".......",
+                "...........",
+                ".W.....W...",
+                "...........",
+                "...........",
+                "...........",
+                "...BBBB....",
+                ".........W.",
+                "...........",
+                ".BB.BB.....",
+                "...........",
+                ".....W.....",
             ])
         case .opponent:
             board = Self.makeBoard([
-                "...B..B",
-                ".......",
-                "..WW...",
-                ".......",
-                "....W..",
-                ".....W.",
-                "B..B...",
+                "B.........B",
+                "...........",
+                "...........",
+                "..WWWW.....",
+                "...........",
+                "...........",
+                ".....W.....",
+                "......W....",
+                ".B.....W...",
+                "........W..",
+                "B..........",
             ])
             cleared = true
         case .finish:
             board = Self.makeBoard([
-                "BBWWBBW",
-                "WW.BWWB",
-                "BW...BW",
-                "BB.W.WB",
-                "WW.BBWW",
-                "WBBWWBB",
-                "BWBBWBW",
+                "BWWWBWBBWWW",
+                "BBWWBBWBWWB",
+                "WWBBWBWBBWW",
+                "BBWBWWBWBWB",
+                "WWBWW.BWB.B",
+                "WW.BBWWWWBB",
+                "BWWWBW.WBWW",
+                "WBWWBWBBWBW",
+                "BBBB.BWBBBW",
+                "BBWBBBWWBWW",
+                "BWBWWBBWBBB",
             ])
         }
     }
@@ -200,7 +212,7 @@ struct TutorialView: View {
 
         case .avoid:
             guard board.isSafe(p, for: .black) else {
-                feedback = "거기 두면 3개가 이어져 집니다. 다른 칸을 골라 보세요."
+                feedback = "거기 두면 5개가 이어져 집니다. 다른 칸을 골라 보세요."
                 Haptics.select()
                 return
             }
@@ -210,7 +222,7 @@ struct TutorialView: View {
 
         case .finish:
             guard board.isSafe(p, for: .black) else {
-                feedback = "거기 두면 내가 3개를 잇게 됩니다."
+                feedback = "거기 두면 내가 5개를 잇게 됩니다."
                 Haptics.select()
                 return
             }
@@ -220,14 +232,14 @@ struct TutorialView: View {
                 return
             }
             place(.black, at: p)
-            // 백은 둘 곳이 금지 칸뿐이라 어쩔 수 없이 3목을 만든다.
+            // 백은 둘 곳이 금지 칸뿐이라 어쩔 수 없이 5목을 만든다.
             if let forced = board.emptyPositions.first,
                let line = board.losingLine(ifPlacing: .white, at: forced) {
                 board.place(.white, at: forced)
                 lastMove = forced
                 losingLine = line
             }
-            feedback = "백은 둘 곳이 금지 칸뿐이라 3개를 잇고 졌습니다. 승리!"
+            feedback = "백은 둘 곳이 금지 칸뿐이라 5개를 잇고 졌습니다. 승리!"
             cleared = true
             Haptics.gameOver(won: true)
 

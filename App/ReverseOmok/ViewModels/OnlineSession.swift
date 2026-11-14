@@ -35,11 +35,11 @@ final class OnlineSession: NSObject, GKMatchDelegate {
         case draw
     }
 
-    static let turnSeconds = 30
+    static let turnSeconds = 20
     /// 상대 시계가 0이 된 뒤 이만큼 더 응답이 없으면 나간 것으로 본다.
     private static let graceSeconds = 10
     /// 규칙이 다른 앱 버전끼리 매칭되지 않도록 그룹 번호에 섞는다.
-    private static let rulesVersion = 1
+    private static let rulesVersion = 2
     private static let quickGroup = 9_000_000 + rulesVersion
     private static func roomGroup(_ code: String) -> Int? {
         guard code.count == 4, let number = Int(code) else { return nil }
@@ -237,7 +237,7 @@ final class OnlineSession: NSObject, GKMatchDelegate {
             case .draw:
                 finish(.draw)
             case let .lost(loser, _):
-                finish(loser == myStone ? .lose("3개를 이어 버렸습니다.") : .win("상대가 3개를 이었습니다."))
+                finish(loser == myStone ? .lose("5개를 이어 버렸습니다.") : .win("상대가 5개를 이었습니다."))
             }
         } else {
             resetDeadline()
