@@ -22,9 +22,9 @@ struct MatchConfig: Codable, Equatable {
     /// 컴퓨터 대전에서 사람이 잡는 돌.
     var humanStone: Stone = .black
 
-    /// 규칙은 3목 7줄 하나로 고정한다. 한 판이 약 40수로 짧고 무승부가 거의 없다.
-    static let runLength = 3
-    static let boardSize = 7
+    /// 규칙은 5목 11줄 하나로 고정한다. 9줄 이하는 무승부가 대부분이고, 13줄 이상은 한 판이 너무 길다.
+    static let runLength = 5
+    static let boardSize = 11
 
     func isHuman(_ stone: Stone) -> Bool {
         mode == .twoPlayer || stone == humanStone

@@ -67,11 +67,11 @@ struct MenuView: View {
     private var masthead: some View {
         VStack(spacing: 14) {
             Emblem()
-                .frame(width: 96, height: 96)
+                .frame(width: 110, height: 110)
             Text("리버스 오목")
                 .font(Theme.title(40))
                 .foregroundStyle(Theme.ink)
-            Text("셋을 이으면 진다")
+            Text("다섯을 이으면 진다")
                 .font(.system(size: 15))
                 .tracking(4)
                 .foregroundStyle(Theme.subInk)
@@ -145,13 +145,13 @@ struct MenuView: View {
     }
 }
 
-/// 흑돌 둘과 금지 칸 하나. 이 게임의 규칙을 그대로 그린 표지.
+/// 흑돌 넷과 금지 칸 하나. 이 게임의 규칙을 그대로 그린 표지.
 private struct Emblem: View {
     var body: some View {
         Canvas { ctx, size in
-            let cell = size.width / 3
+            let cell = size.width / 5
             var grid = Path()
-            for i in 0..<3 {
+            for i in 0..<5 {
                 let x = (CGFloat(i) + 0.5) * cell
                 grid.move(to: CGPoint(x: x, y: 0))
                 grid.addLine(to: CGPoint(x: x, y: size.height))
@@ -161,20 +161,20 @@ private struct Emblem: View {
             ctx.stroke(grid, with: .color(Theme.ink.opacity(0.35)), lineWidth: 1)
 
             let radius = cell * 0.38
-            for i in 0..<2 {
+            for i in 0..<4 {
                 let c = (CGFloat(i) + 0.5) * cell
                 let rect = CGRect(x: c - radius, y: c - radius, width: radius * 2, height: radius * 2)
                 ctx.fill(Path(ellipseIn: rect), with: .color(Theme.ink))
             }
 
-            let c = 2.5 * cell
-            let d = cell * 0.24
+            let c = 4.5 * cell
+            let d = cell * 0.26
             var cross = Path()
             cross.move(to: CGPoint(x: c - d, y: c - d))
             cross.addLine(to: CGPoint(x: c + d, y: c + d))
             cross.move(to: CGPoint(x: c + d, y: c - d))
             cross.addLine(to: CGPoint(x: c - d, y: c + d))
-            ctx.stroke(cross, with: .color(Theme.seal), style: StrokeStyle(lineWidth: 4, lineCap: .square))
+            ctx.stroke(cross, with: .color(Theme.seal), style: StrokeStyle(lineWidth: 3, lineCap: .square))
         }
         .accessibilityHidden(true)
     }
