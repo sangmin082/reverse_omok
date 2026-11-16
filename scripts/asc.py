@@ -34,7 +34,7 @@ def token():
     )
 
 
-def call(method, path, params=None, body=None, soft=False):
+def call(method, path, params=None, body=None, soft=False, empty_ok=False):
     url = API + path
     if params:
         url += "?" + urllib.parse.urlencode(params)
@@ -44,7 +44,10 @@ def call(method, path, params=None, body=None, soft=False):
     req.add_header("Content-Type", "application/json")
     try:
         with urllib.request.urlopen(req) as res:
-            return json.load(res)
+            raw = res.read()
+            if not raw:
+                return {} if empty_ok else None
+            return json.loads(raw)
     except urllib.error.HTTPError as e:
         detail = e.read().decode(errors="replace")
         if soft:
@@ -109,6 +112,66 @@ def ensure_game_center(app_id, bundle_id):
     print("앱의 Game Center를 켰습니다." if created else "앱의 Game Center를 켜지 못했습니다. App Store Connect에서 직접 켜야 할 수 있습니다.")
 
 
+def prepare_review(app_id):
+    """심사 제출 전 준비: 최신 빌드 연결, 버전의 Game Center 사용, 연령 등급. 실패해도 계속한다."""
+    versions = call("GET", f"/v1/apps/{app_id}/appStoreVersions", {"filter[platform]": "IOS", "limit": 10}, soft=True)
+    editable = ("PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED", "REJECTED", "METADATA_REJECTED", "INVALID_BINARY")
+    version = next((v for v in (versions or {}).get("data", []) if v["attributes"].get("appStoreState") in editable), None)
+    if version is None:
+        summary("- 수정할 수 있는 App Store 버전을 찾지 못했습니다.")
+        return
+    version_id = version["id"]
+    summary(f"- App Store 버전: {version['attributes'].get('versionString')} ({version['attributes'].get('appStoreState')})")
+
+    builds = call("GET", "/v1/builds", {
+        "filter[app]": app_id, "filter[processingState]": "VALID", "filter[expired]": "false",
+        "sort": "-uploadedDate", "limit": 1,
+    }, soft=True)
+    build = ((builds or {}).get("data") or [None])[0]
+    if build:
+        linked = call("PATCH", f"/v1/appStoreVersions/{version_id}/relationships/build",
+                      body={"data": {"type": "builds", "id": build["id"]}}, soft=True, empty_ok=True)
+        summary(f"- 빌드 {build['attributes']['version']} 연결: {'완료' if linked is not None else '실패'}")
+    else:
+        summary("- 연결할 수 있는 처리 완료 빌드가 없습니다.")
+
+    detail = call("GET", f"/v1/apps/{app_id}/gameCenterDetail", soft=True)
+    if detail and detail.get("data"):
+        existing = call("GET", f"/v1/appStoreVersions/{version_id}/gameCenterAppVersion", soft=True)
+        if existing and existing.get("data"):
+            enabled = existing["data"]["attributes"].get("enabled")
+            if not enabled:
+                call("PATCH", f"/v1/gameCenterAppVersions/{existing['data']['id']}", body={"data": {
+                    "type": "gameCenterAppVersions", "id": existing["data"]["id"], "attributes": {"enabled": True},
+                }}, soft=True)
+            summary("- 이 버전의 Game Center: 켜짐")
+        else:
+            created = call("POST", "/v1/gameCenterAppVersions", body={"data": {
+                "type": "gameCenterAppVersions",
+                "relationships": {"appStoreVersion": {"data": {"type": "appStoreVersions", "id": version_id}}},
+            }}, soft=True)
+            summary(f"- 이 버전의 Game Center 켜기: {'완료' if created else '실패 (웹에서 직접 켜야 합니다)'}")
+
+    infos = call("GET", f"/v1/apps/{app_id}/appInfos", soft=True)
+    info = next((i for i in (infos or {}).get("data", []) if i["attributes"].get("appStoreState") in editable + (None,)), None)
+    info = info or ((infos or {}).get("data") or [None])[0]
+    if info:
+        rating = call("GET", f"/v1/appInfos/{info['id']}/ageRatingDeclaration", soft=True)
+        if rating and rating.get("data"):
+            attrs = rating["data"]["attributes"]
+            # 폭력, 도박, 채팅, 광고 등 해당 사항이 전혀 없는 보드게임이다.
+            booleans = {"gambling", "unrestrictedWebAccess", "lootBox", "advertising", "messagingAndChat",
+                        "userGeneratedContent", "parentalControls", "ageAssurance", "healthOrWellnessTopics",
+                        "seventeenPlus", "socialNetworking"}
+            skip = {"kidsAgeBand", "ageRatingOverride", "ageRatingOverrideV2", "koreaAgeRatingOverride",
+                    "developerAgeRatingInfoUrl"}
+            wanted = {k: (False if k in booleans else "NONE") for k in attrs if k not in skip}
+            patched = call("PATCH", f"/v1/ageRatingDeclarations/{rating['data']['id']}", body={"data": {
+                "type": "ageRatingDeclarations", "id": rating["data"]["id"], "attributes": wanted,
+            }}, soft=True)
+            summary(f"- 연령 등급(해당 사항 없음으로 응답): {'완료' if patched else '실패 (웹에서 직접 답해야 합니다)'}")
+
+
 def next_build_number(app_id, minimum):
     builds = call("GET", "/v1/builds", {"filter[app]": app_id, "sort": "-version", "limit": 1})["data"]
     latest = max((int(b["attributes"]["version"]) for b in builds if b["attributes"]["version"].isdigit()), default=0)
@@ -135,7 +198,16 @@ def main():
     parser.add_argument("--bundle-id", required=True)
     parser.add_argument("--name", required=True)
     parser.add_argument("--min-build", type=int, default=1)
+    parser.add_argument("--prepare-review", action="store_true", help="빌드 연결 등 심사 제출 준비만 한다")
     args = parser.parse_args()
+
+    if args.prepare_review:
+        app = find_app(args.bundle_id)
+        if app is None:
+            sys.exit(f"::error::App Store Connect에 {args.bundle_id} 앱이 없습니다.")
+        summary("## 심사 제출 준비")
+        prepare_review(app["id"])
+        return
 
     ensure_bundle_id(args.bundle_id, args.name)
     report_certificates()

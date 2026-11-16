@@ -49,6 +49,9 @@ jobs:
           shoot game light game
           shoot tutorial light tutorial
           shoot online light online
+          shoot game5 light game5
+          shoot result light result
+          shoot tutorial2 light tutorial2
           shoot menu-dark dark menu
           shoot game-dark dark game
 
