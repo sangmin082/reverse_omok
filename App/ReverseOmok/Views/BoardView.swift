@@ -131,6 +131,6 @@ struct BoardView: View {
 }
 
 #Preview {
-    BoardView(board: Board(size: 7, runLength: 3), pending: Position(row: 3, col: 3))
+    BoardView(board: Board(size: 8, runLength: 4), pending: Position(row: 3, col: 3))
         .padding()
 }

@@ -15,16 +15,54 @@ enum GameMode: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// 고를 수 있는 규칙. 줄 길이마다 무승부가 적고 너무 길지 않은 판 크기를 짝지어 둔다.
+enum GameRule: String, Codable, CaseIterable, Identifiable {
+    /// 4개를 이으면 진다. 한 판이 짧다.
+    case four
+    /// 5개를 이으면 진다. 9줄 이하는 무승부가 대부분이라 11줄을 쓴다.
+    case five
+
+    var id: String { rawValue }
+
+    var runLength: Int {
+        switch self {
+        case .four: 4
+        case .five: 5
+        }
+    }
+
+    var boardSize: Int {
+        switch self {
+        case .four: 8
+        case .five: 11
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .four: "4목 · 짧게"
+        case .five: "5목 · 길게"
+        }
+    }
+
+    var shortName: String { "\(runLength)목 \(boardSize)줄" }
+
+    func newGame() -> Game {
+        Game(size: boardSize, runLength: runLength)
+    }
+
+    func matches(_ board: Board) -> Bool {
+        board.size == boardSize && board.runLength == runLength
+    }
+}
+
 /// 한 판을 시작할 때 고르는 설정.
 struct MatchConfig: Codable, Equatable {
     var mode: GameMode = .vsAI
     var difficulty: AIDifficulty = .normal
     /// 컴퓨터 대전에서 사람이 잡는 돌.
     var humanStone: Stone = .black
-
-    /// 규칙은 5목 11줄 하나로 고정한다. 9줄 이하는 무승부가 대부분이고, 13줄 이상은 한 판이 너무 길다.
-    static let runLength = 5
-    static let boardSize = 11
+    var rule: GameRule = .four
 
     func isHuman(_ stone: Stone) -> Bool {
         mode == .twoPlayer || stone == humanStone
@@ -53,9 +91,8 @@ struct SavedMatch: Codable {
     static func load() -> SavedMatch? {
         guard let data = UserDefaults.standard.data(forKey: key),
               let saved = try? JSONDecoder().decode(SavedMatch.self, from: data) else { return nil }
-        // 예전 규칙(5목, 다른 판 크기)으로 저장된 판은 이어 할 수 없다.
-        let board = saved.game.board
-        guard board.size == MatchConfig.boardSize, board.runLength == MatchConfig.runLength else { return nil }
+        // 지금은 없는 규칙(예: 3목 7줄)으로 저장된 판은 이어 할 수 없다.
+        guard saved.config.rule.matches(saved.game.board) else { return nil }
         return saved
     }
 

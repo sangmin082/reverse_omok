@@ -35,7 +35,7 @@ struct ReverseOmokApp: App {
 
     #if DEBUG
     private static var sampleMatch: SavedMatch {
-        var game = Game(size: MatchConfig.boardSize, runLength: MatchConfig.runLength)
+        var game = MatchConfig().rule.newGame()
         for (r, c) in [(3, 3), (2, 2), (3, 4), (5, 1), (1, 5), (4, 4), (5, 5), (0, 3), (6, 2), (2, 5)] {
             try? game.play(at: Position(row: r, col: c))
         }

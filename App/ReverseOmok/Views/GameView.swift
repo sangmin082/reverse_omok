@@ -6,7 +6,7 @@ struct GameView: View {
 
     @Environment(\.dismiss) private var dismiss
     @AppStorage("showDanger") private var showDanger = true
-    @AppStorage("confirmPlacement") private var confirmPlacement = true
+    @AppStorage("confirmBeforePlacing") private var confirmPlacement = false
 
     var body: some View {
         VStack(spacing: 20) {

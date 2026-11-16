@@ -5,8 +5,9 @@ import OmokCore
 
 /// 두 기기가 주고받는 메시지.
 enum OnlineMessage: Codable {
-    /// 연결 직후 서로 보내는 난수. 큰 쪽이 흑(선)을 잡는다.
-    case hello(nonce: UInt64)
+    /// 연결 직후 서로 보내는 인사. nonce가 큰 쪽이 흑(선)을 잡는다.
+    /// rule은 보낸 사람이 고른 규칙, host는 방을 만든 사람인지.
+    case hello(nonce: UInt64, rule: GameRule, host: Bool)
     /// number는 이 수가 몇 번째 수인지(1부터).
     case move(number: Int, row: Int, col: Int)
     case resign
@@ -39,15 +40,20 @@ final class OnlineSession: NSObject, GKMatchDelegate {
     /// 상대 시계가 0이 된 뒤 이만큼 더 응답이 없으면 나간 것으로 본다.
     private static let graceSeconds = 10
     /// 규칙이 다른 앱 버전끼리 매칭되지 않도록 그룹 번호에 섞는다.
-    private static let rulesVersion = 2
-    private static let quickGroup = 9_000_000 + rulesVersion
+    private static let rulesVersion = 3
+    /// 빠른 대국은 같은 규칙을 고른 사람끼리만 만난다.
+    private static func quickGroup(_ rule: GameRule) -> Int {
+        9_000_000 + rulesVersion * 10 + rule.runLength
+    }
+    /// 방 코드에는 규칙을 넣지 않는다. 들어온 사람은 방을 만든 사람의 규칙을 따른다.
     private static func roomGroup(_ code: String) -> Int? {
         guard code.count == 4, let number = Int(code) else { return nil }
         return 1_000_000 * rulesVersion + number
     }
 
     private(set) var phase = Phase.idle
-    private(set) var game = Game(size: MatchConfig.boardSize, runLength: MatchConfig.runLength)
+    private(set) var rule = GameRule.four
+    private(set) var game = GameRule.four.newGame()
     private(set) var myStone = Stone.black
     private(set) var opponentName = "상대"
     private(set) var pending: Position?
@@ -60,6 +66,10 @@ final class OnlineSession: NSObject, GKMatchDelegate {
 
     private var activeMatch: GKMatch?
     private var myNonce: UInt64 = 0
+    private var myRule = GameRule.four
+    private var iAmHost = false
+    private var theirRule = GameRule.four
+    private var theyAreHost = false
     private var theirNonce: UInt64?
     private var turnDeadline = Date()
     private var clockTask: Task<Void, Never>?
@@ -94,8 +104,11 @@ final class OnlineSession: NSObject, GKMatchDelegate {
     // MARK: - 매칭
 
     /// code가 nil이면 빠른 대국, 아니면 같은 4자리 코드를 넣은 사람과만 만난다.
-    func search(code: String?) {
+    /// host는 방을 만든 쪽이면 true. 방에서는 만든 사람의 규칙으로 둔다.
+    func search(code: String?, rule: GameRule, host: Bool) {
         guard phase == .idle else { return }
+        myRule = rule
+        iAmHost = host
         let group: Int
         if let code {
             guard let roomGroup = Self.roomGroup(code) else {
@@ -104,7 +117,7 @@ final class OnlineSession: NSObject, GKMatchDelegate {
             }
             group = roomGroup
         } else {
-            group = Self.quickGroup
+            group = Self.quickGroup(rule)
         }
 
         let request = GKMatchRequest()
@@ -171,18 +184,29 @@ final class OnlineSession: NSObject, GKMatchDelegate {
               let opponent = match.players.first else { return }
         GKMatchmaker.shared().finishMatchmaking(for: match)
         opponentName = opponent.displayName
-        send(.hello(nonce: myNonce))
+        sendHello()
         startGameIfReady()
+    }
+
+    private func sendHello() {
+        send(.hello(nonce: myNonce, rule: myRule, host: iAmHost))
     }
 
     private func startGameIfReady() {
         guard phase == .connecting, let theirNonce, theirNonce != myNonce else { return }
-        startGame(as: myNonce > theirNonce ? .black : .white)
+        let iLead = myNonce > theirNonce
+        // 방을 만든 사람의 규칙을 따른다. 둘 다 만들었거나 둘 다 아니면 nonce가 큰 쪽을 따른다.
+        if iAmHost != theyAreHost {
+            rule = iAmHost ? myRule : theirRule
+        } else {
+            rule = iLead ? myRule : theirRule
+        }
+        startGame(as: iLead ? .black : .white)
     }
 
     private func startGame(as stone: Stone) {
         myStone = stone
-        game = Game(size: MatchConfig.boardSize, runLength: MatchConfig.runLength)
+        game = rule.newGame()
         pending = nil
         outcome = nil
         iWantRematch = false
@@ -237,7 +261,8 @@ final class OnlineSession: NSObject, GKMatchDelegate {
             case .draw:
                 finish(.draw)
             case let .lost(loser, _):
-                finish(loser == myStone ? .lose("5개를 이어 버렸습니다.") : .win("상대가 5개를 이었습니다."))
+                let run = game.board.runLength
+                finish(loser == myStone ? .lose("\(run)개를 이어 버렸습니다.") : .win("상대가 \(run)개를 이었습니다."))
             }
         } else {
             resetDeadline()
@@ -307,11 +332,13 @@ final class OnlineSession: NSObject, GKMatchDelegate {
     private func receive(_ data: Data) {
         guard let message = try? JSONDecoder().decode(OnlineMessage.self, from: data) else { return }
         switch message {
-        case let .hello(nonce):
+        case let .hello(nonce, rule, host):
             // 상대가 준비되기 전에 보낸 내 인사는 사라질 수 있으니, 처음 받은 인사에는 한 번 답한다.
             let isNew = theirNonce != nonce
             theirNonce = nonce
-            if isNew { send(.hello(nonce: myNonce)) }
+            theirRule = rule
+            theyAreHost = host
+            if isNew { sendHello() }
             startGameIfReady()
 
         case let .move(number, row, col):

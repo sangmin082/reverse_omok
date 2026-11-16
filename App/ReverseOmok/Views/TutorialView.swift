@@ -6,7 +6,7 @@ struct TutorialView: View {
     var onFinish: () -> Void
 
     @State private var step = Step.place
-    @State private var board = Board(size: MatchConfig.boardSize, runLength: MatchConfig.runLength)
+    @State private var board = GameRule.five.newGame().board
     @State private var lastMove: Position?
     @State private var losingLine: [Position] = []
     @State private var feedback: String?
@@ -108,7 +108,7 @@ struct TutorialView: View {
                 .font(Theme.title(34))
                 .foregroundStyle(Theme.ink)
             VStack(alignment: .leading, spacing: 0) {
-                point("하나", "내 돌 5개를 이으면 집니다.")
+                point("하나", "내 돌 5개를 이으면 집니다. 4목 규칙에서는 4개입니다.")
                 point("둘", "내 돌은 흩어 두고, 상대의 줄은 막지 마세요.")
                 point("셋", "상대가 둘 곳이 금지 칸뿐이면 내가 이깁니다.")
             }
@@ -256,7 +256,7 @@ struct TutorialView: View {
 
     /// "B", "W", "."으로 그린 판을 만든다. 빈 배열이면 빈 판.
     private static func makeBoard(_ rows: [String]) -> Board {
-        var board = Board(size: MatchConfig.boardSize, runLength: MatchConfig.runLength)
+        var board = GameRule.five.newGame().board
         for (r, row) in rows.enumerated() {
             for (c, ch) in row.enumerated() {
                 let p = Position(row: r, col: c)
