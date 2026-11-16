@@ -71,7 +71,7 @@ struct MenuView: View {
             Text("리버스 오목")
                 .font(Theme.title(40))
                 .foregroundStyle(Theme.ink)
-            Text("다섯을 이으면 진다")
+            Text("먼저 이으면 진다")
                 .font(.system(size: 15))
                 .tracking(4)
                 .foregroundStyle(Theme.subInk)
@@ -81,6 +81,11 @@ struct MenuView: View {
 
     private var options: some View {
         VStack(spacing: 12) {
+            ChoiceRow(
+                label: "규칙",
+                options: GameRule.allCases.map { Choice($0, $0.displayName) },
+                selection: $config.rule
+            )
             ChoiceRow(
                 label: "상대",
                 options: GameMode.allCases.map { Choice($0, $0.displayName) },
@@ -110,7 +115,7 @@ struct MenuView: View {
             .buttonStyle(InkButtonStyle())
 
             if let saved, !saved.game.isOver, !saved.game.moves.isEmpty {
-                Button("이어 두기 · \(saved.game.moves.count)수째") {
+                Button("이어 두기 · \(saved.config.rule.runLength)목 \(saved.game.moves.count)수째") {
                     session = GameViewModel(saved: saved)
                 }
                 .buttonStyle(OutlineButtonStyle())

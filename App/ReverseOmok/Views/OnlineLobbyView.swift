@@ -6,6 +6,7 @@ struct OnlineLobbyView: View {
     @State private var session = OnlineSession()
     @State private var auth = GameCenterAuth.shared
     @State private var codeInput = ""
+    @AppStorage("onlineRule") private var rule = GameRule.four
     @Environment(\.dismiss) private var dismiss
     @FocusState private var codeFocused: Bool
 
@@ -71,10 +72,21 @@ struct OnlineLobbyView: View {
 
     private var rooms: some View {
         VStack(spacing: 28) {
+            VStack(alignment: .leading, spacing: 8) {
+                ChoiceRow(
+                    label: "규칙",
+                    options: GameRule.allCases.map { Choice($0, $0.displayName) },
+                    selection: $rule
+                )
+                Text("코드로 들어가면 방을 만든 사람의 규칙으로 둡니다.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.subInk)
+            }
+
             VStack(alignment: .leading, spacing: 10) {
                 sectionLabel("친구와")
                 Button("방 만들기") {
-                    session.search(code: OnlineSession.randomCode())
+                    session.search(code: OnlineSession.randomCode(), rule: rule, host: true)
                 }
                 .buttonStyle(InkButtonStyle())
 
@@ -92,7 +104,7 @@ struct OnlineLobbyView: View {
                         }
                     Button("들어가기") {
                         codeFocused = false
-                        session.search(code: codeInput)
+                        session.search(code: codeInput, rule: rule, host: false)
                     }
                     .buttonStyle(OutlineButtonStyle())
                     .frame(width: 120)
@@ -103,7 +115,7 @@ struct OnlineLobbyView: View {
             VStack(alignment: .leading, spacing: 10) {
                 sectionLabel("아무나와")
                 Button("빠른 대국") {
-                    session.search(code: nil)
+                    session.search(code: nil, rule: rule, host: false)
                 }
                 .buttonStyle(OutlineButtonStyle())
             }
@@ -190,6 +202,11 @@ struct OnlineGameView: View {
 
     var body: some View {
         VStack(spacing: 20) {
+            Text(session.rule.shortName)
+                .font(Theme.label)
+                .foregroundStyle(Theme.subInk)
+                .padding(.bottom, -8)
+
             HStack(alignment: .top, spacing: 20) {
                 playerBar(.black)
                 playerBar(.white)
