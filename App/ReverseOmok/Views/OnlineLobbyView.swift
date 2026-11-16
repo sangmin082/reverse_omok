@@ -185,7 +185,7 @@ struct OnlineGameView: View {
     let session: OnlineSession
 
     @AppStorage("showDanger") private var showDanger = true
-    @AppStorage("confirmPlacement") private var confirmPlacement = true
+    @AppStorage("confirmBeforePlacing") private var confirmPlacement = false
     @State private var confirmResign = false
 
     var body: some View {

@@ -4,7 +4,7 @@ import OmokCore
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("showDanger") private var showDanger = true
-    @AppStorage("confirmPlacement") private var confirmPlacement = true
+    @AppStorage("confirmBeforePlacing") private var confirmPlacement = false
     @AppStorage(Haptics.settingKey) private var hapticsEnabled = true
     @State private var stats = Stats.load()
     @State private var confirmReset = false
