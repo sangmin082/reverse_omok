@@ -3,6 +3,7 @@ import OmokCore
 
 /// 직접 돌을 놓아 보며 규칙을 배우는 튜토리얼.
 struct TutorialView: View {
+    var initialStep = Step.place
     var onFinish: () -> Void
 
     @State private var step = Step.place
@@ -59,7 +60,7 @@ struct TutorialView: View {
         .frame(maxWidth: 560)
         .frame(maxWidth: .infinity)
         .background(Theme.paper.ignoresSafeArea())
-        .onAppear { load(.place) }
+        .onAppear { load(initialStep) }
     }
 
     private var lesson: some View {

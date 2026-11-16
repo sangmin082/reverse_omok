@@ -1,0 +1,91 @@
+name: Store listing
+
+# 스토어용 스크린샷을 찍고, 스토어 정보와 함께 App Store Connect에 올린다.
+# 최신 빌드를 버전에 연결하고 연령 등급 등도 채운다. 심사 제출 버튼은 누르지 않는다.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: store
+  cancel-in-progress: false
+
+jobs:
+  listing:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build for simulator
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project ReverseOmok.xcodeproj \
+            -scheme ReverseOmok \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO | tail -5
+
+      - name: Capture store screenshots (6.9-inch)
+        run: |
+          set -euo pipefail
+          app=build/Build/Products/Debug-iphonesimulator/ReverseOmok.app
+          device=$(xcrun simctl list devices available | grep -m1 -E '^\s+iPhone [0-9]+ Pro Max \(' | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')
+          echo "device: $device"
+          xcrun simctl boot "$device"
+          xcrun simctl bootstatus "$device" -b
+          xcrun simctl status_bar "$device" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
+          xcrun simctl ui "$device" appearance light
+          xcrun simctl install "$device" "$app"
+          out=fastlane/screenshots/ko
+          mkdir -p "$out"
+          shoot() { # 파일 이름, 화면
+            xcrun simctl terminate "$device" com.reverseomok.game 2>/dev/null || true
+            xcrun simctl launch "$device" com.reverseomok.game -screen "$2" -tutorialSeen YES
+            sleep 6
+            xcrun simctl io "$device" screenshot "$out/$1.png"
+          }
+          shoot 01_game game
+          shoot 02_menu menu
+          shoot 03_tutorial tutorial2
+          shoot 04_game5 game5
+          shoot 05_result result
+          sips -g pixelWidth -g pixelHeight "$out/01_game.png"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: store-screenshots
+          path: fastlane/screenshots
+
+      - name: Write API key
+        run: |
+          key_path="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s\n' "$ASC_KEY_P8" > "$key_path"
+          echo "ASC_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+
+      - name: Read app info
+        run: |
+          bundle_id=$(sed -n 's/^app_identifier("\(.*\)")$/\1/p' fastlane/Appfile)
+          version=$(grep -m1 -o 'MARKETING_VERSION = [^;]*' ReverseOmok.xcodeproj/project.pbxproj | sed 's/.* = //')
+          echo "BUNDLE_ID=$bundle_id" >> "$GITHUB_ENV"
+          echo "APP_VERSION=$version" >> "$GITHUB_ENV"
+          echo "번들 ID: $bundle_id, 버전: $version"
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Upload metadata and screenshots
+        run: bundle exec fastlane store
+
+      - name: Prepare for review
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet pyjwt cryptography
+          "$RUNNER_TEMP/venv/bin/python" scripts/asc.py --bundle-id "$BUNDLE_ID" --name store --prepare-review
